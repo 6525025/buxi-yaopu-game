@@ -1,0 +1,32 @@
+import assert from "node:assert/strict";
+import test from "node:test";
+
+async function render() {
+  const workerUrl = new URL("../dist/server/index.js", import.meta.url);
+  workerUrl.searchParams.set("test", `${process.pid}-${Date.now()}`);
+  const { default: worker } = await import(workerUrl.href);
+
+  return worker.fetch(
+    new Request("http://localhost/", { headers: { accept: "text/html" } }),
+    { ASSETS: { fetch: async () => new Response("Not found", { status: 404 }) } },
+    { waitUntil() {}, passThroughOnException() {} },
+  );
+}
+
+test("server-renders the strategy game shell", async () => {
+  const response = await render();
+  assert.equal(response.status, 200);
+  assert.match(response.headers.get("content-type") ?? "", /^text\/html\b/i);
+
+  const html = await response.text();
+  assert.match(html, /<title>不息药铺｜策略消除小游戏<\/title>/i);
+  assert.match(html, /不息药铺/);
+  assert.match(html, /百鬼夜市/);
+  assert.match(html, /七乘七药材棋盘/);
+  assert.match(html, /五方引灵/);
+  assert.match(html, /十字霆火/);
+  assert.match(html, /一息净坛/);
+  assert.match(html, /掌柜入门 · 30 秒会玩/);
+  assert.match(html, /懂了，开炉配药/);
+  assert.doesNotMatch(html, /codex-preview|SkeletonPreview|react-loading-skeleton/);
+});
